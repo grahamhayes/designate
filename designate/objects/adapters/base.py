@@ -139,18 +139,53 @@ class DesignateAdapter(object):
     @classmethod
     def parse(cls, format_, values, output_object, *args, **kwargs):
 
-        if isinstance(output_object, objects.ListObjectMixin):
-            # type_ = 'list'
-            return cls.get_object_adapter(
-                format_,
-                output_object)._parse_list(
-                    values, output_object, *args, **kwargs)
-        else:
-            # type_ = 'object'
-            return cls.get_object_adapter(
-                format_,
-                output_object)._parse_object(
-                    values, output_object, *args, **kwargs)
+        LOG.debug("Creating %s object with values %r" %
+                  (output_object.obj_name(), values))
+
+        try:
+            if isinstance(output_object, objects.ListObjectMixin):
+                # type_ = 'list'
+                return cls.get_object_adapter(
+                    format_,
+                    output_object)._parse_list(
+                        values, output_object, *args, **kwargs)
+            else:
+                # type_ = 'object'
+                return cls.get_object_adapter(
+                    format_,
+                    output_object)._parse_object(
+                        values, output_object, *args, **kwargs)
+
+        except TypeError, e:
+            LOG.debug("TypeError creating %s with values %r" %
+                      (output_object.obj_name(), values))
+
+            error_message = str.format(
+                'Provided object does not match schema. '
+                'Got a TypeError with message %s' % e.message)
+            raise exceptions.InvalidObject(error_message)
+
+        except AttributeError, e:
+            LOG.debug("AttributeError creating %s with values %r" %
+                      (output_object.obj_name(), values))
+            error_message = str.format(
+                'Provided object is not valid. '
+                'Got an AttributeError with message %s' % e.message)
+            raise exceptions.InvalidObject(error_message)
+
+        except exceptions.InvalidObject:
+            LOG.debug("InvalidObject creating %s with values %r" %
+                      (output_object.obj_name(), values))
+            raise
+
+        except Exception, e:
+            LOG.debug("Exception creating %s with values %r" %
+                      (output_object.obj_name(), values))
+            error_message = str.format(
+                'Provided object is not valid. '
+                'Got a %s error with message %s' %
+                (type(e).__name__, e.message))
+            raise exceptions.InvalidObject(error_message)
 
     @classmethod
     def _parse_object(cls, values, output_object, *args, **kwargs):

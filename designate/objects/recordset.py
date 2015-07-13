@@ -136,6 +136,11 @@ class RecordSet(base.DictObjectMixin, base.PersistentObjectMixin,
 
     def validate(self):
 
+        LOG.debug("Validating '%(name)s' object with values: %(values)r", {
+            'name': self.obj_name(),
+            'values': self.to_dict(),
+        })
+
         errors = ValidationErrorList()
 
         # Get the right classes (e.g. A for Recordsets with type: 'A')
@@ -191,6 +196,37 @@ class RecordSet(base.DictObjectMixin, base.PersistentObjectMixin,
                 # Add it to the list for later
                 errors.append(e)
                 error_indexes.append(i)
+
+            except TypeError, e:
+                e = ValidationError()
+                e.path = ['records', i]
+                e.validator = 'format'
+                e.validator_value = [self.type]
+                e.message = ("'%(data)s' is not a '%(type)s' Record"
+                             % {'data': record.data, 'type': self.type})
+                # Add it to the list for later
+                errors.append(e)
+                error_indexes.append(i)
+
+            except AttributeError, e:
+                e = ValidationError()
+                e.path = ['records', i]
+                e.validator = 'format'
+                e.validator_value = [self.type]
+                e.message = ("'%(data)s' is not a '%(type)s' Record"
+                             % {'data': record.data, 'type': self.type})
+                # Add it to the list for later
+                errors.append(e)
+                error_indexes.append(i)
+
+            except Exception, e:
+                LOG.exception("InvalidObject - Exception")
+                error_message = str.format(
+                    'Provided object is not valid. '
+                    'Got a %s error with message %s' %
+                    (type(e).__name__, e.message))
+                raise exceptions.InvalidObject(error_message)
+
             else:
                 # Seems to have loaded right - add it to be validated by
                 # JSONSchema
@@ -222,6 +258,13 @@ class RecordSet(base.DictObjectMixin, base.PersistentObjectMixin,
             # If JSONSchema passes, but we found parsing errors,
             # raise an exception
             if len(errors) > 0:
+                LOG.debug(
+                    "Error Validating '%(name)s' object with values: "
+                    "%(values)r", {
+                        'name': self.obj_name(),
+                        'values': self.to_dict(),
+                    }
+                )
                 raise exceptions.InvalidObject(
                     "Provided object does not match "
                     "schema", errors=errors, object=self)
